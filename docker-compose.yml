@@ -1,0 +1,53 @@
+version: '3.5'
+
+services:
+  smile-nginx:
+    image: nginx:latest
+    container_name: smile-nginx
+    ports:
+      - "83:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/sites-enabled:/etc/nginx/conf.d
+      - ./docker/logs/nginx:/var/log/nginx
+    depends_on:
+      - smile
+    networks:
+      smile_network:
+        aliases:
+          - smile.loc
+    command: [nginx-debug, '-g', 'daemon off;']
+
+  smile:
+    build:
+      context: ./
+      args:
+        user: www-data
+        uid: 1000
+      dockerfile: ./docker/php.dockerfile
+    volumes:
+      -  ./:/srv/www/app
+      - ./docker/www.conf:/usr/local/etc/php-fpm.d/www.conf
+    networks:
+      - smile_network
+    depends_on:
+      - database
+    container_name: smile
+
+  database:
+    hostname: database.loc
+    container_name: mariadb
+    image: 'mariadb:latest'
+    environment:
+      - MYSQL_ROOT_PASSWORD=docker
+    volumes:
+      - ./docker/database/data:/var/lib/mysql
+      - ./docker/database/dump:/srv/dump
+    ports:
+      - "3306:3306"
+    networks:
+      - smile_network
+
+networks:
+  smile_network:
+    driver: bridge
